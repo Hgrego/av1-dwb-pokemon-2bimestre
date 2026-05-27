@@ -15,6 +15,8 @@ const clearButton = document.getElementById('clearButton');
 
 // Variável para armazenar todos os pokémons carregados
 let allPokemons = [];
+// Estado atual do filtro: 'all' ou 'favorites'
+let currentFilter = 'all';
 
 // ============================================
 // FUNÇÕES AUXILIARES
@@ -28,6 +30,7 @@ let allPokemons = [];
 function createPokemonCard(pokemon) {
     const col = document.createElement('div');
     col.className = 'col-12 col-sm-6 col-md-4 col-lg-3';
+    col.dataset.id = String(pokemon.id);
 
     const card = document.createElement('div');
     card.className = 'card pokemon-card h-100';
@@ -40,6 +43,30 @@ function createPokemonCard(pokemon) {
     img.src = pokemon.image;
     img.alt = pokemon.name;
     imageDiv.appendChild(img);
+
+    // Botão de favorito (⭐) - fica sobre a imagem
+    // Usa as funções globais isFavorito / toggleFavorito definidas em js/favoritos.js
+    const favBtn = document.createElement('button');
+    favBtn.className = 'fav-btn';
+    favBtn.type = 'button';
+    favBtn.title = 'Favoritar';
+    // Estado inicial baseado no localStorage
+    const ativo = typeof isFavorito === 'function' ? isFavorito(pokemon.id) : false;
+    favBtn.textContent = ativo ? '★' : '☆';
+    if (ativo) favBtn.classList.add('active');
+
+    // Clique no botão de favorito não deve navegar para detalhes
+    favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (typeof toggleFavorito === 'function') {
+            toggleFavorito(pokemon.id);
+        }
+        const novoEstado = typeof isFavorito === 'function' ? isFavorito(pokemon.id) : false;
+        favBtn.classList.toggle('active', novoEstado);
+        favBtn.textContent = novoEstado ? '★' : '☆';
+    });
+
+    imageDiv.appendChild(favBtn);
 
     // Corpo do Card
     const body = document.createElement('div');
@@ -83,6 +110,58 @@ function createPokemonCard(pokemon) {
 
     return col;
 }
+
+// Mostra apenas os pokémons favoritados
+function mostrarFavoritos() {
+    currentFilter = 'favorites';
+    // Ler IDs dos favoritos via getFavoritos() (fornecido por favoritos.js)
+    const favIds = (typeof getFavoritos === 'function') ? getFavoritos() : [];
+
+    if (!Array.isArray(favIds) || favIds.length === 0) {
+        pokemonGrid.innerHTML = '';
+        const emptyMessage = document.createElement('div');
+        emptyMessage.className = 'col-12 text-center py-5';
+        emptyMessage.innerHTML = `
+            <p class="text-muted fs-5">Nenhum Pokémon favoritado</p>
+        `;
+        pokemonGrid.appendChild(emptyMessage);
+        return;
+    }
+
+    // Filtrar os pokémons já carregados sem chamar a API novamente
+    const favSet = new Set(favIds.map(Number));
+    const filtered = allPokemons.filter(p => favSet.has(Number(p.id)));
+    renderPokemonCards(filtered);
+}
+
+// Restaura exibição de todos os pokémons
+function mostrarTodos() {
+    currentFilter = 'all';
+    renderPokemonCards(allPokemons);
+}
+
+// Atualiza o botão de favorito em um card existente sem re-render completo
+function updateCardFavoriteState(id) {
+    const col = pokemonGrid.querySelector(`[data-id="${id}"]`);
+    if (!col) return;
+    const favBtn = col.querySelector('.fav-btn');
+    if (!favBtn) return;
+    const ativo = (typeof isFavorito === 'function') ? isFavorito(id) : false;
+    favBtn.classList.toggle('active', ativo);
+    favBtn.textContent = ativo ? '★' : '☆';
+}
+
+// Ouvir evento disparado por favoritos.js quando um favorito é atualizado
+document.addEventListener('favoritosUpdated', (e) => {
+    const { id } = e.detail || {};
+    // Se estamos mostrando apenas favoritos, refazer a lista para refletir remoções
+    if (currentFilter === 'favorites') {
+        mostrarFavoritos();
+    } else {
+        // Apenas atualiza o botão no card correspondente
+        updateCardFavoriteState(id);
+    }
+});
 
 /**
  * Exibe a mensagem de carregamento
@@ -313,4 +392,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adicionar evento do botão limpar
     clearButton.addEventListener('click', clearSearch);
+
+        // Botões de filtro
+        const filterAllBtn = document.getElementById('filterAll');
+        const filterFavBtn = document.getElementById('filterFavoritos');
+        if (filterAllBtn && filterFavBtn) {
+            filterAllBtn.addEventListener('click', () => {
+                filterAllBtn.classList.add('active');
+                filterFavBtn.classList.remove('active');
+                mostrarTodos();
+            });
+
+            filterFavBtn.addEventListener('click', () => {
+                filterFavBtn.classList.add('active');
+                filterAllBtn.classList.remove('active');
+                mostrarFavoritos();
+            });
+        }
 });
