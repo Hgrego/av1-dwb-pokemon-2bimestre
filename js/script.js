@@ -3,7 +3,7 @@
 // ============================================
 
 const API_BASE_URL = 'https://pokeapi.co/api/v2/pokemon';
-const POKEMON_COUNT = 20; // Quantidade de pokémons a listar
+const POKEMON_COUNT = 1028; // Quantidade de pokémons a listar
 
 // Elementos do DOM
 const pokemonGrid = document.getElementById('pokemonGrid');
